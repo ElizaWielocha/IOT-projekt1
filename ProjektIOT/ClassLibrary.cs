@@ -13,15 +13,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Win32;
+using System.Net.Sockets;
+using System.Xml.Linq;
+using System.Xml;
 
 namespace ClassLibrary
 {
-    public class Class1
+    public class ClassLibrary
     {
         public DeviceClient client;
         public OpcClient OPC;
 
-        public Class1(DeviceClient deviceClient, OpcClient OPC)
+        public ClassLibrary(DeviceClient deviceClient, OpcClient OPC)
         {
             this.client = deviceClient;
             this.OPC = OPC;
@@ -29,8 +32,9 @@ namespace ClassLibrary
 
         #region BrowseNodes
         public async Task Browse(OpcNodeInfo node, List<String> Devices, int level = 0)
-        {;
-                level++;
+        {
+            ;
+            level++;
 
             foreach (var childNode in node.Children())
             {
@@ -40,14 +44,14 @@ namespace ClassLibrary
                 }
                 Browse(childNode, Devices, level);
             }
-            
+
         }
         #endregion
 
         #region PrintData
-        public async Task PrintData(string DeviceName, 
-                                    object ProductionStatus, 
-                                    object ProductionRate, 
+        public async Task PrintData(string DeviceName,
+                                    object ProductionStatus,
+                                    object ProductionRate,
                                     object WorkorderId,
                                     object Temperature,
                                     object GoodCount,
@@ -112,13 +116,13 @@ namespace ClassLibrary
                         BadCount = BadCount,
                         Temperature = Temperature,
                         ProductionRate = ProductionRate,
-                        DeviceError = DeviceError  
+                        DeviceError = DeviceError
                     };
                     await SendMessagesToIoTHub(newData);
                 }
             }
         }
-        
+
 
 
 
@@ -149,7 +153,7 @@ namespace ClassLibrary
 
 
             // jeśli w reported properties jest już ten device (nazwa device)
-            if (reportedProperties.Contains(nameDevice))                
+            if (reportedProperties.Contains(nameDevice))
             {
                 var reportedError = reportedProperties[nameDevice];     // pobierz wartosc deviceError z reported properties
 
@@ -158,8 +162,8 @@ namespace ClassLibrary
                 if (reportedError != errorDevice)
                 {
                     var updatedProperties = new TwinCollection();
-                    updatedProperties[nameDevice+"_errors"] = errorDevice;        // Aktualizuj reported property dla device
-                    
+                    updatedProperties[nameDevice + "_errors"] = errorDevice;        // Aktualizuj reported property dla device
+
                     await client.UpdateReportedPropertiesAsync(updatedProperties);
                     Console.WriteLine($"Reported property for deivce |{nameDevice}| was updated!");
                 }
@@ -194,12 +198,12 @@ namespace ClassLibrary
                 if (property.ToString().Substring(1, 6) == "Device")
                 {
                     string reportedDevice = property.ToString().Substring(1).Split("_")[0];                          // nazwa device z reported properties, np. Device2
-                    if (! deviceList.Contains( reportedDevice.Substring(1,6) + " " + reportedDevice.Substring(7)))   // sprawdz czy Lista device'ow zawiera reportedDevice już ze spacją
-                    {   
+                    if (!deviceList.Contains(reportedDevice.Substring(1, 6) + " " + reportedDevice.Substring(7)))   // sprawdz czy Lista device'ow zawiera reportedDevice już ze spacją
+                    {
                         // jesli nie zawiera to usuwamy ten device z reported properties
                         var deleteDevice = reportedDevice;
                         var updatedProperties = new TwinCollection();
-                        updatedProperties[deleteDevice+"_errors"] = null;
+                        updatedProperties[deleteDevice + "_errors"] = null;
                         await client.UpdateReportedPropertiesAsync(updatedProperties);
                     }
                 }
@@ -209,49 +213,14 @@ namespace ClassLibrary
         #endregion
 
         #region UpdateProductionRate
-        public async Task UpdateProductionRate(string deviceName)    
-        {
-            var twin = await client.GetTwinAsync();
-            string json = JsonConvert.SerializeObject(twin, Formatting.Indented);
-            JObject jobjectJSON = JObject.Parse(json);
-
-            string desired_productionRateName = deviceName.Replace(" ", "") + "_production_rate";
-            string desired_productionRateValue = (string)jobjectJSON["properties"]["desired"][desired_productionRateName];
-
-            if (!string.IsNullOrEmpty(desired_productionRateValue))
-            {
-                int int_productionRate;
-                if (int.TryParse(desired_productionRateValue, out int_productionRate))
-                {
-                    OPC.WriteNode("ns=2;s=" + deviceName + "/ProductionRate", int_productionRate);
-
-                }
-            }
-
-        }
-
-        private async Task OnDesiredPropertyChanged(TwinCollection desiredProperties, object userContext)  // zmienianie properties 
-        {
-            // co się zmieniło w properties
-            Console.WriteLine($"\tDesired property change:\n\t{JsonConvert.SerializeObject(desiredProperties)}");
-            Console.WriteLine("\tSending current time as reported property");
-
-            // Ustawiamy nowa kolekcje properties 
-            TwinCollection reportedProperties = new TwinCollection();
-            // Ustawiamy nowe pole z data
-            reportedProperties["DateTimeLastDesiredPropertyChangeReceived"] = DateTime.Now;
-
-            // uzywajac SDK pushujemy properties do serwisu i dorzucamy ConfigureAwait(false), czyli nie chcemy konfiguracji wprowadzać
-            await client.UpdateReportedPropertiesAsync(reportedProperties).ConfigureAwait(false);
-        }
         #endregion
 
-        public async Task InitializeHandlers() 
+
+        public async Task InitializeHandlers()
         {
-            // Za kazdym razem gdy bedzie zmiana propertisu to chcemy callback
-            await client.SetDesiredPropertyUpdateCallbackAsync(OnDesiredPropertyChanged, client);
+            
         }
 
 
-        }
+    }
 }

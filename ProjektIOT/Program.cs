@@ -11,6 +11,7 @@ using Microsoft.Azure.Amqp.Framing;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 
 
 
@@ -19,17 +20,17 @@ using System.IO;
 
 string deviceConnectionString = "HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
 
-    using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, TransportType.Mqtt);   // uzycie klasy 
-    await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
-                                                                          // wlasciwa deklaracja klienta
+using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, TransportType.Mqtt);   // uzycie klasy 
+await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
+                                                                                                                // wlasciwa deklaracja klienta
 
 
 
 using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 {
     client.Connect();
-    var device = new Class1(deviceClient, client);
-    
+    var device = new ClassLibrary.ClassLibrary(deviceClient, client);
+
     var node = client.BrowseNode(OpcObjectTypes.ObjectsFolder);
     List<string> devicesList = new List<string>();
     await device.Browse(node, devicesList);
@@ -39,7 +40,7 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
     while (true)
     {
         client.Connect();
-        device = new Class1(deviceClient, client);
+        device = new ClassLibrary.ClassLibrary(deviceClient, client);
 
         Console.Clear();
         Thread.Sleep(1000);
@@ -78,7 +79,7 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
                                         data.DeviceError);
 
             await device.UpdateTwinAsync(data.DeviceName, data.DeviceError);
-            
+
 
         }
         client.Disconnect();
