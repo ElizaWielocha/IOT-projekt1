@@ -24,8 +24,6 @@ using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectio
 await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
                                                                                                                 // wlasciwa deklaracja klienta
 
-
-
 using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 {
     client.Connect();
@@ -38,10 +36,11 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 
     await device.deleteTwinAsync(devicesList);
     Console.WriteLine("Client connected!");
+
     while (true)
     {
-        client.Connect();
-        device = new ClassLibrary.ClassLibrary(deviceClient, client);
+        //client.Connect();
+        //device = new ClassLibrary.ClassLibrary(deviceClient, client);
 
         Console.Clear();
         foreach (string deviceName in devicesList)
@@ -83,7 +82,5 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 
         }
         Thread.Sleep(5000);
-        client.Disconnect();
-        await Task.Delay(500);
     }
 }

@@ -24,13 +24,15 @@ namespace ClassLibrary
         public DeviceClient client;
         public OpcClient OPC;
 
+        #region constructor
         public ClassLibrary(DeviceClient deviceClient, OpcClient OPC)
         {
             this.client = deviceClient;
             this.OPC = OPC;
         }
+        #endregion
 
-        #region BrowseNodes
+        #region BrowseNodes -> Make a list of devices in simulation
         public async Task Browse(OpcNodeInfo node, List<String> Devices, int level = 0)
         {
             ;
@@ -48,7 +50,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region PrintData
+        #region PrintData -> Print readed from nodes parameters
         public async Task PrintData(string DeviceName,
                                     object ProductionStatus,
                                     object ProductionRate,
@@ -70,7 +72,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region D2C SendMessages -> 
+        #region D2C SendMessages -> Send data with or without DeviceError value (depends on change on DeviceErrors in simulation
         public async Task SendMessages(string DeviceName,
                                         object ProductionStatus,
                                         object ProductionRate,
@@ -135,8 +137,7 @@ namespace ClassLibrary
 
             await client.SendEventAsync(eventMessage);                              // Wysyłamy wiadomość
         }
-        #endregion D2C send messages
-
+        #endregion 
 
         #region UpdateTwinAsync - change of Device_errors and Device_pproductionRate in Desired and Reported properties in DeviceTwin
         public async Task UpdateTwinAsync(string DeviceName, object DeviceError, object ProductionRate)
@@ -229,7 +230,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region deleteTwinAsync -> Delete unneeded reported properties for Device_errors and Device_production_rate
+        #region DeleteTwinAsync -> Delete unneeded reported properties for Device_errors and Device_production_rate
         public async Task deleteTwinAsync(List<String> deviceList)
         {
             var twin = await client.GetTwinAsync();                     // pobieramy twin
@@ -246,6 +247,7 @@ namespace ClassLibrary
                         var deleteDevice = reportedDevice;
                         var updatedProperties = new TwinCollection();
                         updatedProperties[deleteDevice + "_errors"] = null;
+                        updatedProperties[deleteDevice + "_production_rate"] = null;
                         await client.UpdateReportedPropertiesAsync(updatedProperties);
                     }
                 }
