@@ -121,9 +121,7 @@ namespace ClassLibrary
                 };
                 await SendMessagesToIoTHub(newData);
             }
-
         }
-
 
         public async Task SendMessagesToIoTHub(dynamic Data)
         {
@@ -140,47 +138,92 @@ namespace ClassLibrary
         #endregion D2C send messages
 
 
-
-        #region UpdateTwinAsync
-        public async Task UpdateTwinAsync(string DeviceName, object DeviceError)
+        #region UpdateTwinAsync - change of Device_Errors and ProductionRate
+        public async Task UpdateTwinAsync(string DeviceName, object DeviceError, object ProductionRate)
         {
             var twin = await client.GetTwinAsync();                     // pobieramy twin
-            var reportedProperties = twin.Properties.Reported;          // ścieżka dla reported properties
+          
+            var reportedProperties = twin.Properties.Reported;          // pobieramy reported properties
+            var desiredProperties = twin.Properties.Desired;            // pobieramy deired properties
 
-            string nameDevice = DeviceName.Replace(" ", "");              // Z nazwy Device usuwamy spacje
+
+            // DEVICE_ERRORS -----------------------------------------------
+            // DecviceName_errors dla reported properties
+            string deviceName_errors = DeviceName.Replace(" ", "") + "_errors";  
             var errorDevice = DeviceError;
-
-
-            // jeśli w reported properties jest już ten device (nazwa device)
-            if (reportedProperties.Contains(nameDevice))
+            // jeśli w reported properties jest już ten device_error
+            if (reportedProperties.Contains(deviceName_errors))
             {
-                var reportedError = reportedProperties[nameDevice];     // pobierz wartosc deviceError z reported properties
+                var reportedError = reportedProperties[deviceName_errors];     // pobierz wartosc device_error z reported properties
 
-                // Jeśli wartość deviceError w reported properties jest różna od wartości błędu w danych(data)
+                // Jeśli wartość device_error w reported properties jest różna od wartości błędu w danych(data)
                 // wykonaj aktualizację
                 if (reportedError != errorDevice)
                 {
                     var updatedProperties = new TwinCollection();
-                    updatedProperties[nameDevice + "_errors"] = errorDevice;        // Aktualizuj reported property dla device
+                    updatedProperties[deviceName_errors] = errorDevice;        // Aktualizuj reported property dla device
 
                     await client.UpdateReportedPropertiesAsync(updatedProperties);
-                    Console.WriteLine($"Reported property for deivce |{nameDevice}| was updated!");
+                    Console.WriteLine($"Reported property for device |{DeviceName}| was updated!");
                 }
-                // Jeśli wartość deviceError w reported properties jest taka sama jak wartość błędu w danych(data)
+                // Jeśli wartość device_error w reported properties jest taka sama jak wartość błędu w danych(data)
                 // to nic nie zmieniamy
                 else
                 {
-                    Console.WriteLine($"No update performed for device |{nameDevice}|!");
+                    Console.WriteLine($"No update performed for device |{DeviceName}|!");
                 }
             }
-            // jesli w reported properties nie ma device (nazwy device)
+            // jesli w reported properties nie ma device_error
             else
             {
-                // Dodajemy wartość errorDevice dla device w properties
+                // Dodajemy wartość device_error dla device w properties
                 var updatedProperties = new TwinCollection();
-                updatedProperties[nameDevice + "_errors"] = errorDevice;
+                updatedProperties[deviceName_errors] = errorDevice;
                 await client.UpdateReportedPropertiesAsync(updatedProperties);
-                Console.WriteLine($"Added device |{nameDevice}| to reported properties!");
+                Console.WriteLine($"Added device |{DeviceName}| to reported properties!");
+
+            }
+
+            // PRODUCTION_RATE ---------------------------------------------------------
+            // DeviceName_production_rate dla desired properties
+            var deviceName_production_rate = DeviceName.Replace(" ", "") + "_production_rate";
+            var productionRate = ProductionRate;
+
+            if (desiredProperties.Contains(deviceName_production_rate))
+            {
+                int ProductionRate_numeric;
+                if (int.TryParse((string)desiredProperties[deviceName_production_rate], out ProductionRate_numeric)) 
+                {
+                    OpcStatus tmp = OPC.WriteNode("ns=2;s=" + DeviceName + "/ProductionRate", ProductionRate_numeric);
+                }
+            }
+
+            if (reportedProperties.Contains(deviceName_production_rate))
+            {
+                var reportedProductionRate = reportedProperties[deviceName_production_rate];
+                // Jeśli aktualna wartosc productonRate jest rozna od nowej,
+                // wykonaj aktualizacje
+                if (reportedProductionRate != ProductionRate) 
+                {
+                    var updatedProperties = new TwinCollection();
+                    updatedProperties[deviceName_production_rate] = ProductionRate;
+
+                    await client.UpdateReportedPropertiesAsync(updatedProperties);
+                    Console.WriteLine($"Reported property for {deviceName_production_rate} was updated!");
+                }
+                else
+                {
+                    Console.WriteLine($"No update performed for {deviceName_production_rate}!");
+                }
+            }
+            else
+            // jesli w reported properties nie ma production_rate
+            {
+                // Dodajemy wartość production_rate dla device w properties
+                var updatedProperties = new TwinCollection();
+                updatedProperties[deviceName_production_rate] = ProductionRate;
+                await client.UpdateReportedPropertiesAsync(updatedProperties);
+                Console.WriteLine($"Added {deviceName_production_rate} to reported properties!");
 
             }
         }
@@ -209,10 +252,9 @@ namespace ClassLibrary
 
             }
         }
-        #endregion
+        #endregion deleteTwinAsync
 
-        #region UpdateProductionRate
-        #endregion
+       
 
 
         public async Task InitializeHandlers()

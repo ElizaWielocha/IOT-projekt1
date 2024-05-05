@@ -43,7 +43,6 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
         device = new ClassLibrary.ClassLibrary(deviceClient, client);
 
         Console.Clear();
-        Thread.Sleep(3000);
         foreach (string deviceName in devicesList)
         {
             string pre = "ns=2;s=" + deviceName + "/";
@@ -78,10 +77,11 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
                                         data.BadCount,
                                         data.DeviceError);
 
-            await device.UpdateTwinAsync(data.DeviceName, data.DeviceError);
+            await device.UpdateTwinAsync(data.DeviceName, data.DeviceError, data.ProductionRate);
 
 
         }
+        Thread.Sleep(5000);
         client.Disconnect();
         await Task.Delay(500);
     }
