@@ -70,7 +70,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region D2C send messages
+        #region D2C SendMessages -> 
         public async Task SendMessages(string DeviceName,
                                         object ProductionStatus,
                                         object ProductionRate,
@@ -138,7 +138,7 @@ namespace ClassLibrary
         #endregion D2C send messages
 
 
-        #region UpdateTwinAsync - change of Device_Errors and ProductionRate
+        #region UpdateTwinAsync - change of Device_errors and Device_pproductionRate in Desired and Reported properties in DeviceTwin
         public async Task UpdateTwinAsync(string DeviceName, object DeviceError, object ProductionRate)
         {
             var twin = await client.GetTwinAsync();                     // pobieramy twin
@@ -201,7 +201,7 @@ namespace ClassLibrary
             if (reportedProperties.Contains(deviceName_production_rate))
             {
                 var reportedProductionRate = reportedProperties[deviceName_production_rate];
-                // Jeśli aktualna wartosc productonRate jest rozna od nowej,
+                // Jeśli aktualna wartosc productonRate jest rozpozna od nowej,
                 // wykonaj aktualizacje
                 if (reportedProductionRate != ProductionRate) 
                 {
@@ -229,7 +229,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region deleteTwinAsync
+        #region deleteTwinAsync -> Delete unneeded reported properties for Device_errors and Device_production_rate
         public async Task deleteTwinAsync(List<String> deviceList)
         {
             var twin = await client.GetTwinAsync();                     // pobieramy twin
@@ -252,16 +252,53 @@ namespace ClassLibrary
 
             }
         }
-        #endregion deleteTwinAsync
+        #endregion 
 
-       
-
-
-        public async Task InitializeHandlers()
+        #region EmergencyStop -> direct method
+        public async Task<MethodResponse> EmergencyStop(MethodRequest methodRequest, object userContext)
         {
+            var payload = JsonConvert.DeserializeAnonymousType(methodRequest.DataAsJson, new { deviceName = default(string) });
+            if (payload != null)
+            {
+                Console.WriteLine("Emergency stop for " + payload.deviceName);
+
+                await Task.Run(() => OPC.CallMethod("ns=2;s=" + payload.deviceName, "ns=2;s=" + payload.deviceName + "/EmergencyStop"));
+            }
+            else
+            {
+                Console.WriteLine("Emergency stop for " + payload.deviceName + "done!");
+            }
+            return new MethodResponse(0);
 
         }
+        #endregion
 
+        #region ResetErrorStatus -> direct method
+        public async Task<MethodResponse> ResetErrorStatus(MethodRequest methodRequest, object userContext)
+        {
+            var payload = JsonConvert.DeserializeAnonymousType(methodRequest.DataAsJson, new { deviceName = default(string) });
+            if (payload != null)
+            {
+                Console.WriteLine("Reset error status for " + payload.deviceName);
+
+                await Task.Run(() => OPC.CallMethod("ns=2;s=" + payload.deviceName, "ns=2;s=" + payload.deviceName + "/ResetErrorStatus"));
+            }
+            else
+            {
+                Console.WriteLine("Reset error status for " + payload.deviceName + "done!");
+            }
+            return new MethodResponse(0);
+        }
+        #endregion
+
+        #region Handlers
+        public async Task InitializeHandlers()
+        {
+            await client.SetMethodHandlerAsync("EmergencyStop", EmergencyStop, client);
+            await client.SetMethodHandlerAsync("ResetErrorStatus", ResetErrorStatus, client);
+
+        }
+        #endregion
 
     }
 }

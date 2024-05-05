@@ -30,6 +30,7 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 {
     client.Connect();
     var device = new ClassLibrary.ClassLibrary(deviceClient, client);
+    await device.InitializeHandlers();
 
     var node = client.BrowseNode(OpcObjectTypes.ObjectsFolder);
     List<string> devicesList = new List<string>();
