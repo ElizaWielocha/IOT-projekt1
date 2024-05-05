@@ -82,48 +82,47 @@ namespace ClassLibrary
         {
             var twin = await client.GetTwinAsync();
             var reportedProperties = twin.Properties.Reported;
-            var nameDevice = DeviceName.Replace(" ", "");
+            var nameDevice = DeviceName.Replace(" ", "")+"_errors";
             var errorDevice = DeviceError;
+            bool sameData = true;
 
             if (reportedProperties.Contains(nameDevice))
             {
                 var currentError = reportedProperties[nameDevice];
 
-                bool sameData = (currentError == errorDevice);
-
-                if (sameData)
-                {
-                    var newData = new
-                    {
-                        DeviceName = DeviceName,
-                        ProductionStatus = ProductionStatus,
-                        WorkorderId = WorkorderId,
-                        GoodCount = GoodCount,
-                        BadCount = BadCount,
-                        Temperature = Temperature,
-                        ProductionRate = ProductionRate
-                    };
-                    await SendMessagesToIoTHub(newData);
-                }
-                else
-                {
-                    var newData = new
-                    {
-                        DeviceName = DeviceName,
-                        ProductionStatus = ProductionStatus,
-                        WorkorderId = WorkorderId,
-                        GoodCount = GoodCount,
-                        BadCount = BadCount,
-                        Temperature = Temperature,
-                        ProductionRate = ProductionRate,
-                        DeviceError = DeviceError
-                    };
-                    await SendMessagesToIoTHub(newData);
-                }
+                sameData = (currentError == errorDevice);
             }
+            if (sameData)
+            {
+                var newData = new
+                {
+                    DeviceName = DeviceName,
+                    ProductionStatus = ProductionStatus,
+                    WorkorderId = WorkorderId,
+                    GoodCount = GoodCount,
+                    BadCount = BadCount,
+                    Temperature = Temperature,
+                    ProductionRate = ProductionRate
+                };
+                await SendMessagesToIoTHub(newData);
+            }
+            else
+            {
+                var newData = new
+                {
+                    DeviceName = DeviceName,
+                    ProductionStatus = ProductionStatus,
+                    WorkorderId = WorkorderId,
+                    GoodCount = GoodCount,
+                    BadCount = BadCount,
+                    Temperature = Temperature,
+                    ProductionRate = ProductionRate,
+                    DeviceError = DeviceError
+                };
+                await SendMessagesToIoTHub(newData);
+            }
+
         }
-
-
 
 
         public async Task SendMessagesToIoTHub(dynamic Data)
@@ -218,7 +217,7 @@ namespace ClassLibrary
 
         public async Task InitializeHandlers()
         {
-            
+
         }
 
 

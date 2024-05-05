@@ -43,7 +43,7 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
         device = new ClassLibrary.ClassLibrary(deviceClient, client);
 
         Console.Clear();
-        Thread.Sleep(1000);
+        Thread.Sleep(3000);
         foreach (string deviceName in devicesList)
         {
             string pre = "ns=2;s=" + deviceName + "/";
