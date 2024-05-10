@@ -14,12 +14,27 @@ using System.IO;
 using System.Net.Sockets;
 
 
-string deviceConnectionString = "HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
+string deviceConnectionString;
+string localhostConnection;
+
+// menu 
+Console.WriteLine("Do you want to use the default connection? [y/n]: ");
+char choice = Console.ReadLine()[0];
+if (choice.Equals('y'))
+{
+    deviceConnectionString = $"HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
+    localhostConnection = "opc.tcp://localhost:4840/";
+}
+else
+{
+    deviceConnectionString = Console.ReadLine();
+    localhostConnection = Console.ReadLine();
+}
 
 using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, TransportType.Mqtt);   // uzycie klasy 
 await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
 
-using (var client = new OpcClient("opc.tcp://localhost:4840/"))
+using (var client = new OpcClient(deviceConnectionString))
 {
     client.Connect();
     var device = new ClassLibrary.ClassLibrary(deviceClient, client);
