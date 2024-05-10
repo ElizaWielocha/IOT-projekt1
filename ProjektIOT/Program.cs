@@ -14,15 +14,10 @@ using System.IO;
 using System.Net.Sockets;
 
 
-
-
-// Tworzymy klienta i łączymy się z IOT HUB ---------------------------------------------------------
-
 string deviceConnectionString = "HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
 
 using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, TransportType.Mqtt);   // uzycie klasy 
 await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
-                                                                                                                // wlasciwa deklaracja klienta
 
 using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 {
@@ -39,9 +34,6 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 
     while (true)
     {
-        //client.Connect();
-        //device = new ClassLibrary.ClassLibrary(deviceClient, client);
-
         Console.Clear();
         foreach (string deviceName in devicesList)
         {

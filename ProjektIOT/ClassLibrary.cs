@@ -24,7 +24,7 @@ namespace ClassLibrary
         public DeviceClient client;
         public OpcClient OPC;
 
-        #region constructor
+        #region Constructor
         public ClassLibrary(DeviceClient deviceClient, OpcClient OPC)
         {
             this.client = deviceClient;
