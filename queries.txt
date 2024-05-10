@@ -1,0 +1,39 @@
+/* 1. KPI  -> % of good production (see good count) in total volume, grouped by device in 5-minute 
+windows */
+SELECT 
+    DeviceName,
+    round(100.0 * SUM(GoodCount)/SUM(GoodCount + BadCount), 2) AS KPI
+INTO
+    [kpi-container] 
+FROM
+    [Uczelnia-Zajecia] 
+GROUP BY
+    DeviceName, TumblingWindow(minute,5)
+
+/* 2. Temperature -> Every 1 minute give me the average, minimum and maximum temperature over the last 5 
+minutes (grouped by device) */
+SELECT 
+    DeviceName, 
+    AVG(Temperature) AS avg_Temperature,
+    MIN(Temperature) AS min_Temperature,
+    MAX(Temperature) AS max_Temperature
+INTO
+    [temperature-container]
+FROM 
+    [Uczelnia-Zajecia] 
+GROUP BY 
+    DeviceName, HoppingWindow(minute, 5 , 1)
+
+/* 3. Device erros -> Situations whenever a device experiences more than 3 errors in under 1 minute
+*/
+SELECT 
+    DeviceName, COUNT(*) AS Count
+INTO
+    [errors-container]
+FROM 
+    [Uczelnia-Zajecia] 
+WHERE 
+    DeviceError is not null and
+    DeviceError != 0
+GROUP BY DeviceName, SlidingWindow(minute, 1)
+HAVING COUNT(DeviceError) >= 3
