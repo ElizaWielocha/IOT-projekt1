@@ -17,12 +17,20 @@ using System.Net.Sockets;
 using System.Xml.Linq;
 using System.Xml;
 
+// serviceBus
+using Azure.Messaging.ServiceBus;
+using Opc.Ua;
+using Microsoft.Azure.Amqp.Framing;
+//using Microsoft.Azure.Devices;
+//using FuncionForBusinessLogic;
+
 namespace ClassLibrary
 {
     public class ClassLibrary
     {
         public DeviceClient client;
         public OpcClient OPC;
+        //public RegistryManager registry;
 
         #region Constructor
         public ClassLibrary(DeviceClient deviceClient, OpcClient OPC)
@@ -139,7 +147,7 @@ namespace ClassLibrary
         }
         #endregion 
 
-        #region UpdateTwinAsync - change of Device_errors and Device_pproductionRate in Desired and Reported properties in DeviceTwin
+        #region UpdateTwinAsync - change of Device_errors and Device_productionRate in Desired and Reported properties in DeviceTwin
         public async Task UpdateTwinAsync(string DeviceName, object DeviceError, object ProductionRate)
         {
             var twin = await client.GetTwinAsync();                     // pobieramy twin
@@ -302,5 +310,55 @@ namespace ClassLibrary
         }
         #endregion
 
+        #region Business logic -> serviceBus for more then 3 device errors = emergencyStop
+        public async Task ProcessMessageAsync_for_errors(ProcessMessageEventArgs arg)
+        {
+            Console.WriteLine($"RECEIVED MESSAGE FOR ERRORS:\n\t{arg.Message.Body}");
+            var message = Encoding.UTF8.GetString(arg.Message.Body);
+            ReadMessage_for_errors mesg = JsonConvert.DeserializeObject<ReadMessage_for_errors>(message);
+
+            string deviceId = mesg.DeviceName;
+            OPC.CallMethod($"ns=2;s={deviceId}", $"ns=2;s={deviceId}/EmergencyStop");
+        }
+
+        public Task ProcessErrorAsync_for_errors(ProcessErrorEventArgs arg)
+        {
+            Console.WriteLine(arg.Exception.ToString());
+
+            return Task.CompletedTask;
+        }
+        public class ReadMessage_for_errors
+        {
+            public string DeviceName { get; set; }
+            public string Count { get; set; }
+
+        }
+        #endregion
+
+        #region Business logic -> serviceBus for kpi below 90 = decrease productionRate
+        public async Task ProcessMessageAsync_for_kpi(ProcessMessageEventArgs arg)
+        {
+            Console.WriteLine($"RECEIVED MESSAGE FOR KPI:\n\t{arg.Message.Body}");
+            Console.WriteLine("JEEEEEEEEEEEEEEEEEEEEEEST");
+            var message = Encoding.UTF8.GetString(arg.Message.Body);
+            ReadMessage_for_errors mesg = JsonConvert.DeserializeObject<ReadMessage_for_errors>(message);
+
+            string deviceId = mesg.DeviceName;
+            // todo
+        }
+
+        public Task ProcessErrorAsync_for_kpi(ProcessErrorEventArgs arg)
+        {
+            Console.WriteLine(arg.Exception.ToString());
+
+            return Task.CompletedTask;
+        }
+        public class ReadMessage_for_kpi
+        {
+            public string DeviceName { get; set; }
+            public string KPI { get; set; }
+
+        }
+        #endregion
     }
 }
