@@ -335,6 +335,8 @@ namespace ClassLibrary
         }
         #endregion
 
+
+        // TO NIE DZIAŁA----------------------------------------------------------------------------------
         #region Business logic -> serviceBus for kpi below 90 = decrease productionRate
         public async Task ProcessMessageAsync_for_kpi(ProcessMessageEventArgs arg)
         {
@@ -360,5 +362,6 @@ namespace ClassLibrary
 
         }
         #endregion
+        // ----------------------------------------------------------------------------------------------------
     }
 }
