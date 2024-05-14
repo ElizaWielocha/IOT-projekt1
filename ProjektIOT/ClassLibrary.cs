@@ -19,6 +19,8 @@ using Azure.Messaging.ServiceBus;
 using Opc.Ua;
 using Microsoft.Azure.Amqp.Framing;
 using Microsoft.Azure.Devices;
+using System.Configuration;
+using System.Collections.Specialized;
 
 
 namespace ClassLibrary
@@ -113,7 +115,7 @@ namespace ClassLibrary
                     Temperature = Temperature,
                     ProductionRate = ProductionRate
                 };
-                await SendMessagesToIoTHub(newData);
+                await SendMessagesToIoTHub(newData, sameData);
             }
             else
             {
@@ -128,15 +130,16 @@ namespace ClassLibrary
                     ProductionRate = ProductionRate,
                     DeviceError = DeviceError
                 };
-                await SendMessagesToIoTHub(newData);
+                await SendMessagesToIoTHub(newData, sameData);
             }
         }
 
-        public async Task SendMessagesToIoTHub(dynamic Data)
+        public async Task SendMessagesToIoTHub(dynamic Data, bool sameData)
         {
             var dataString = JsonConvert.SerializeObject(Data);                     // Musimy zmienic nasza strukturę na String za pomocą JsonConvertera
 
             Microsoft.Azure.Devices.Client.Message eventMessage = new Microsoft.Azure.Devices.Client.Message(Encoding.UTF8.GetBytes(dataString)); // Tworzymy obiekt Wiadomość jako bajty (UTF8)
+            eventMessage.Properties.Add("errorAlert", (!sameData ) ? "true" : "false");
 
             // Ustawiamy Headery
             eventMessage.ContentType = MediaTypeNames.Application.Json;             // Typ contentu to jest Json
@@ -237,11 +240,13 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region DeleteTwinAsync -> Delete unneeded reported properties for Device_errors and Device_production_rate
+        #region DeleteTwinAsync -> Delete unneeded reported/desired properties for Device_errors and Device_production_rate
         public async Task deleteTwinAsync(List<String> deviceList)
         {
-            var twin = await client.GetTwinAsync();                     // pobieramy twin
+            var twin = await client.GetTwinAsync();                     // pobieramy twin dla reported properties
+            var desired_twin = await registry.GetTwinAsync(ConfigurationManager.AppSettings.Get("IOTHubName"));
             var reportedProperties = twin.Properties.Reported;          // ścieżka dla reported properties
+            var desiredProperties = desired_twin.Properties.Desired;
 
             foreach (var property in reportedProperties)
             {
@@ -258,8 +263,24 @@ namespace ClassLibrary
                         await client.UpdateReportedPropertiesAsync(updatedProperties);
                     }
                 }
-
             }
+            // deleting desired properties
+            /*
+            foreach (var property in desiredProperties)
+            {
+                if (property.ToString().Substring(1, 6) == "Device")
+                {
+                    string reportedDevice = property.ToString().Substring(1).Split("_")[0];                          // nazwa device z reported properties, np. Device2
+                    if (!deviceList.Contains(reportedDevice.Substring(1, 6) + " " + reportedDevice.Substring(7)))   // sprawdz czy Lista device'ow zawiera reportedDevice już ze spacją
+                    {
+                        // jesli nie zawiera to usuwamy ten device z desired properties
+                        var deleteDevice = reportedDevice;
+                        //var updatedProperties = new TwinCollection();
+                        //desiredProperties[deleteDevice + "_production_rate"] = null;
+                        //await registry.UpdateTwinAsync(desired_twin.DeviceId, desired_twin, desired_twin.ETag);
+                    }
+                }
+            } */
         }
         #endregion 
 
@@ -309,7 +330,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region Business logic -> serviceBus for more then 3 device errors = emergencyStop
+        #region Business logic -> serviceBus for more then 3 device errors in 1 minute = emergencyStop
         public async Task ProcessMessageAsync_for_errors(ProcessMessageEventArgs arg)
         {
             //Console.WriteLine($"RECEIVED MESSAGE FOR ERRORS:\n\t{arg.Message.Body}");
@@ -334,7 +355,7 @@ namespace ClassLibrary
         }
         #endregion
 
-        #region Business logic -> serviceBus for kpi below 90 = decrease productionRate
+        #region Business logic -> serviceBus for kpi below 90 in 5 minutes = decrease productionRate
         public async Task DecreaseProductionRate(string IOThub, string deviceName)
         {
             var twin = await registry.GetTwinAsync(IOThub);
@@ -380,7 +401,7 @@ namespace ClassLibrary
             ReadMessage_for_errors mesg = JsonConvert.DeserializeObject<ReadMessage_for_errors>(message);
 
             string deviceName = mesg.DeviceName;
-            string IOThub = "Device_test";
+            string IOThub = ConfigurationManager.AppSettings.Get("IOTHubName");
             await DecreaseProductionRate(IOThub, deviceName);
         }
 

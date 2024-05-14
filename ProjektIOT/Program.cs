@@ -16,37 +16,22 @@ using Microsoft.Azure.Devices;
 using Azure.Messaging.ServiceBus;
 using System.Diagnostics;
 using Microsoft.Azure.Devices;
+using System.Configuration;
+using System.Collections.Specialized;
 
-/*
-string deviceConnectionString;
-string localhostConnection;
-// menu 
-Console.WriteLine("Do you want to use the default connection? [y/n]: ");
-char choice = Console.ReadLine()[0];
-if (choice.Equals('y'))
-{
-    deviceConnectionString = $"HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
-    localhostConnection = "opc.tcp://localhost:4840/";
-}
-else
-{
-    deviceConnectionString = Console.ReadLine();
-    localhostConnection = Console.ReadLine();
-}
-*/
-
-var deviceConnectionString = $"HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
+var deviceConnectionString = ConfigurationManager.AppSettings.Get("deviceConnectionString");
 using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);   // uzycie klasy 
 await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
 
-const string sbConnectionString = "Endpoint=sb://servicebusproject.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=UvfL+IFASe542tBJI3lNRFw0jJRe/qUnl+ASbPabuYE=";
+string sbConnectionString = ConfigurationManager.AppSettings.Get("sbConnectionString");
 
 
 
-using (var client = new OpcClient("opc.tcp://localhost:4840/"))
+using (var client = new OpcClient(ConfigurationManager.AppSettings.Get("OPCclient")))
 {
     client.Connect();
-    using var registry = RegistryManager.CreateFromConnectionString("HostName=Uczelnia-Zajecia.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=gEkhKZ4eq2jMwDecCXFbtAqfjh49wQRhDAIoTFmWzsQ=");
+    Console.WriteLine("Client connected!");
+    using var registry = RegistryManager.CreateFromConnectionString(ConfigurationManager.AppSettings.Get("registryManager"));
     var device = new ClassLibrary.ClassLibrary(deviceClient, client, registry);
     await device.InitializeHandlers();
 
@@ -55,9 +40,7 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
     await device.Browse(node, devicesList);
 
     await device.deleteTwinAsync(devicesList);
-    Console.WriteLine("Client connected!");
-
-
+    
     // servisbus
     await using ServiceBusClient sbClient = new ServiceBusClient(sbConnectionString);
 
@@ -120,6 +103,6 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
             //
             Console.WriteLine("");
         }
-        Thread.Sleep(3000);
+        Thread.Sleep(2000);
     }
 }
