@@ -15,14 +15,11 @@ using System.Threading.Tasks;
 using Microsoft.Win32;
 using System.Net.Sockets;
 using System.Xml.Linq;
-using System.Xml;
-
-// serviceBus
 using Azure.Messaging.ServiceBus;
 using Opc.Ua;
 using Microsoft.Azure.Amqp.Framing;
-//using Microsoft.Azure.Devices;
-//using FuncionForBusinessLogic;
+using Microsoft.Azure.Devices;
+
 
 namespace ClassLibrary
 {
@@ -30,20 +27,22 @@ namespace ClassLibrary
     {
         public DeviceClient client;
         public OpcClient OPC;
-        //public RegistryManager registry;
+        public RegistryManager registry;
+
 
         #region Constructor
-        public ClassLibrary(DeviceClient deviceClient, OpcClient OPC)
+        public ClassLibrary(DeviceClient deviceClient, OpcClient OPC, RegistryManager registry)
         {
             this.client = deviceClient;
             this.OPC = OPC;
+            this.registry = registry;
         }
         #endregion
 
         #region BrowseNodes -> Make a list of devices in simulation
         public async Task Browse(OpcNodeInfo node, List<String> Devices, int level = 0)
         {
-            ;
+            //;
             level++;
 
             foreach (var childNode in node.Children())
@@ -76,7 +75,7 @@ namespace ClassLibrary
             Console.WriteLine("GoodCount:        " + GoodCount);
             Console.WriteLine("BadCount:         " + BadCount);
             Console.WriteLine("DeviceError:      " + DeviceError);
-            Console.WriteLine("-----------------------");
+            Console.WriteLine("------------------------------------------------------");
         }
         #endregion
 
@@ -137,7 +136,7 @@ namespace ClassLibrary
         {
             var dataString = JsonConvert.SerializeObject(Data);                     // Musimy zmienic nasza strukturę na String za pomocą JsonConvertera
 
-            Message eventMessage = new Message(Encoding.UTF8.GetBytes(dataString)); // Tworzymy obiekt Wiadomość jako bajty (UTF8)
+            Microsoft.Azure.Devices.Client.Message eventMessage = new Microsoft.Azure.Devices.Client.Message(Encoding.UTF8.GetBytes(dataString)); // Tworzymy obiekt Wiadomość jako bajty (UTF8)
 
             // Ustawiamy Headery
             eventMessage.ContentType = MediaTypeNames.Application.Json;             // Typ contentu to jest Json
@@ -173,13 +172,13 @@ namespace ClassLibrary
                     updatedProperties[deviceName_errors] = errorDevice;        // Aktualizuj reported property dla device
 
                     await client.UpdateReportedPropertiesAsync(updatedProperties);
-                    Console.WriteLine($"Reported property for device |{DeviceName}| was updated!");
+                    Console.WriteLine($"Reported property for {deviceName_errors} was updated!");
                 }
                 // Jeśli wartość device_error w reported properties jest taka sama jak wartość błędu w danych(data)
                 // to nic nie zmieniamy
                 else
                 {
-                    Console.WriteLine($"No update performed for device |{DeviceName}|!");
+                    Console.WriteLine($"No update performed for {deviceName_errors}!");
                 }
             }
             // jesli w reported properties nie ma device_error
@@ -189,7 +188,7 @@ namespace ClassLibrary
                 var updatedProperties = new TwinCollection();
                 updatedProperties[deviceName_errors] = errorDevice;
                 await client.UpdateReportedPropertiesAsync(updatedProperties);
-                Console.WriteLine($"Added device |{DeviceName}| to reported properties!");
+                Console.WriteLine($"Added device {deviceName_errors} to reported properties!");
 
             }
 
@@ -313,7 +312,7 @@ namespace ClassLibrary
         #region Business logic -> serviceBus for more then 3 device errors = emergencyStop
         public async Task ProcessMessageAsync_for_errors(ProcessMessageEventArgs arg)
         {
-            Console.WriteLine($"RECEIVED MESSAGE FOR ERRORS:\n\t{arg.Message.Body}");
+            //Console.WriteLine($"RECEIVED MESSAGE FOR ERRORS:\n\t{arg.Message.Body}");
             var message = Encoding.UTF8.GetString(arg.Message.Body);
             ReadMessage_for_errors mesg = JsonConvert.DeserializeObject<ReadMessage_for_errors>(message);
 
@@ -335,18 +334,54 @@ namespace ClassLibrary
         }
         #endregion
 
-
-        // TO NIE DZIAŁA----------------------------------------------------------------------------------
         #region Business logic -> serviceBus for kpi below 90 = decrease productionRate
+        public async Task DecreaseProductionRate(string IOThub, string deviceName)
+        {
+            var twin = await registry.GetTwinAsync(IOThub);
+            string json = JsonConvert.SerializeObject(twin, Formatting.Indented);
+            JObject data = JObject.Parse(json);
+
+            var reportedProperties = twin.Properties.Reported;
+            var desiredProperties = twin.Properties.Desired;       
+
+            var productionRate_name = deviceName.Replace(" ", "") + "_production_rate";
+
+
+            if (desiredProperties.Contains(productionRate_name))
+            {
+             
+                int desired_value = desiredProperties[productionRate_name];
+                int decreasedRate = desired_value - 10;
+
+                
+                desiredProperties[productionRate_name] = decreasedRate;
+                await registry.UpdateTwinAsync(twin.DeviceId, twin, twin.ETag);                                                           
+                OpcStatus status = OPC.WriteNode($"ns=2;s={deviceName}/ProductionRate", decreasedRate);
+
+            }
+            else
+            {
+                int new_productionRate = reportedProperties[productionRate_name];
+                int decreasedRate = new_productionRate - 10;
+
+                desiredProperties[productionRate_name] = decreasedRate;
+                await registry.UpdateTwinAsync(twin.DeviceId, twin, twin.ETag);
+                Console.WriteLine($"Added {productionRate_name} to desired properties!");
+                OpcStatus status = OPC.WriteNode($"ns=2;s={deviceName}/ProductionRate", decreasedRate);
+
+            }
+        }
+
+        
         public async Task ProcessMessageAsync_for_kpi(ProcessMessageEventArgs arg)
         {
-            Console.WriteLine($"RECEIVED MESSAGE FOR KPI:\n\t{arg.Message.Body}");
-            Console.WriteLine("JEEEEEEEEEEEEEEEEEEEEEEST");
+            //Console.WriteLine($"RECEIVED MESSAGE FOR KPI:\n\t{arg.Message.Body}");
             var message = Encoding.UTF8.GetString(arg.Message.Body);
             ReadMessage_for_errors mesg = JsonConvert.DeserializeObject<ReadMessage_for_errors>(message);
 
-            string deviceId = mesg.DeviceName;
-            // todo
+            string deviceName = mesg.DeviceName;
+            string IOThub = "Device_test";
+            await DecreaseProductionRate(IOThub, deviceName);
         }
 
         public Task ProcessErrorAsync_for_kpi(ProcessErrorEventArgs arg)
@@ -362,6 +397,5 @@ namespace ClassLibrary
 
         }
         #endregion
-        // ----------------------------------------------------------------------------------------------------
     }
 }

@@ -12,12 +12,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
-
-
-// serviceBus
-//using FuncionForBusinessLogic;
+using Microsoft.Azure.Devices;
 using Azure.Messaging.ServiceBus;
 using System.Diagnostics;
+using Microsoft.Azure.Devices;
 
 /*
 string deviceConnectionString;
@@ -38,19 +36,18 @@ else
 */
 
 var deviceConnectionString = $"HostName=Uczelnia-Zajecia.azure-devices.net;DeviceId=Device_test;SharedAccessKey=NpE3SJIrdSphmNeEZyU5ZNIGh6hG0tn3oAIoTGnPtco=";
-using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, TransportType.Mqtt);   // uzycie klasy 
+using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);   // uzycie klasy 
 await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
 
-
-//serviceBus
 const string sbConnectionString = "Endpoint=sb://servicebusproject.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=UvfL+IFASe542tBJI3lNRFw0jJRe/qUnl+ASbPabuYE=";
-//
+
 
 
 using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 {
     client.Connect();
-    var device = new ClassLibrary.ClassLibrary(deviceClient, client);
+    using var registry = RegistryManager.CreateFromConnectionString("HostName=Uczelnia-Zajecia.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=gEkhKZ4eq2jMwDecCXFbtAqfjh49wQRhDAIoTFmWzsQ=");
+    var device = new ClassLibrary.ClassLibrary(deviceClient, client, registry);
     await device.InitializeHandlers();
 
     var node = client.BrowseNode(OpcObjectTypes.ObjectsFolder);
@@ -92,7 +89,7 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
                 BadCount = client.ReadNode(pre + "BadCount").Value,
                 DeviceError = client.ReadNode(pre + "DeviceError").Value
             };
-
+            Console.WriteLine("------------------------------------------------------");
             await device.PrintData(data.DeviceName,
                                     data.ProductionStatus,
                                     data.ProductionRate,
@@ -115,12 +112,14 @@ using (var client = new OpcClient("opc.tcp://localhost:4840/"))
 
             // servisbus
             await processor_for_errors.StartProcessingAsync();
-            await processor_for_kpi.StartProcessingAsync();
-            Thread.Sleep(500);
+            Thread.Sleep(300);
             await processor_for_errors.StopProcessingAsync();
+            await processor_for_kpi.StartProcessingAsync();
+            Thread.Sleep(300);
             await processor_for_kpi.StopProcessingAsync();
             //
+            Console.WriteLine("");
         }
-        Thread.Sleep(5000);
+        Thread.Sleep(3000);
     }
 }
