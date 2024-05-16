@@ -19,49 +19,54 @@ using Microsoft.Azure.Devices;
 using System.Configuration;
 using System.Collections.Specialized;
 
+// connections
 var deviceConnectionString = ConfigurationManager.AppSettings.Get("deviceConnectionString");
-using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);   // uzycie klasy 
-await deviceClient.OpenAsync();                                                                                 // otwarcie połączenia z IOT HUBem
-
+using var deviceClient = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);   // using class 
+await deviceClient.OpenAsync();                                                                                                                // open connection with IoTHub
 string sbConnectionString = ConfigurationManager.AppSettings.Get("sbConnectionString");
-
 
 
 using (var client = new OpcClient(ConfigurationManager.AppSettings.Get("OPCclient")))
 {
+    // connect to client
     client.Connect();
     Console.WriteLine("Client connected!");
     using var registry = RegistryManager.CreateFromConnectionString(ConfigurationManager.AppSettings.Get("registryManager"));
     var device = new ClassLibrary.ClassLibrary(deviceClient, client, registry);
     await device.InitializeHandlers();
 
+    // get the list of devices in simulation
     var node = client.BrowseNode(OpcObjectTypes.ObjectsFolder);
     List<string> devicesList = new List<string>();
     await device.Browse(node, devicesList);
 
+    // delete unneded reported properties from twin
     await device.deleteTwinAsync(devicesList);
     
-    // servisbus
+    // servisbus - queues for device_errors and kpi's
     await using ServiceBusClient sbClient = new ServiceBusClient(sbConnectionString);
 
     await using ServiceBusProcessor processor_for_errors = sbClient.CreateProcessor("errors-queue");
     processor_for_errors.ProcessMessageAsync += device.ProcessMessageAsync_for_errors;
     processor_for_errors.ProcessErrorAsync += device.ProcessErrorAsync_for_errors;
+    await processor_for_errors.StartProcessingAsync();
 
     await using ServiceBusProcessor processor_for_kpi = sbClient.CreateProcessor("kpi-queue");
     processor_for_kpi.ProcessMessageAsync += device.ProcessMessageAsync_for_kpi;
     processor_for_kpi.ProcessErrorAsync += device.ProcessErrorAsync_for_kpi;
-    //
+    await processor_for_kpi.StartProcessingAsync();
 
+    // infinity loop
     while (true)
     {
         Console.Clear();
 
+        // iterate through list of devices
         foreach (string deviceName in devicesList)
         {
             string pre = "ns=2;s=" + deviceName + "/";
 
-            var data = new     // tworzymy strukture danych przechowujaca nasza wiadomosc
+            var data = new     // create data structure containing message values
             {
                 DeviceName = deviceName,
                 ProductionStatus = client.ReadNode(pre + "ProductionStatus").Value,
@@ -73,6 +78,7 @@ using (var client = new OpcClient(ConfigurationManager.AppSettings.Get("OPCclien
                 DeviceError = client.ReadNode(pre + "DeviceError").Value
             };
             Console.WriteLine("------------------------------------------------------");
+            // print data
             await device.PrintData(data.DeviceName,
                                     data.ProductionStatus,
                                     data.ProductionRate,
@@ -81,7 +87,7 @@ using (var client = new OpcClient(ConfigurationManager.AppSettings.Get("OPCclien
                                     data.GoodCount,
                                     data.BadCount,
                                     data.DeviceError);
-
+            // send data to IoTHub
             await device.SendMessages(data.DeviceName,
                                         data.ProductionStatus,
                                         data.ProductionRate,
@@ -90,17 +96,9 @@ using (var client = new OpcClient(ConfigurationManager.AppSettings.Get("OPCclien
                                         data.GoodCount,
                                         data.BadCount,
                                         data.DeviceError);
-
+            // update device twin
             await device.UpdateTwinAsync(data.DeviceName, data.DeviceError, data.ProductionRate);
-
-            // servisbus
-            await processor_for_errors.StartProcessingAsync();
-            Thread.Sleep(300);
-            await processor_for_errors.StopProcessingAsync();
-            await processor_for_kpi.StartProcessingAsync();
-            Thread.Sleep(300);
-            await processor_for_kpi.StopProcessingAsync();
-            //
+            
             Console.WriteLine("");
         }
         Thread.Sleep(2000);
